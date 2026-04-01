@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Многопроцессорные системы — Образовательный ресурс</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #68e383;
+      --accent-dark: #3dba5a;
+      --bg: #f5f5f5;
+      --bg2: #ebebeb;
+      --text: #111;
+      --text-muted: #666;
+      --radius: 15px;
+      --header-h: 72px;
+    }
+    html { scroll-behavior: smooth; cursor: none; }
+    body { 
+      font-family: 'Manrope', sans-serif; 
+      background: var(--bg); 
+      color: var(--text); 
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ==========  КУРСОР ========== */
+    .cursor-dot {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 0.1s ease, width 0.2s, height 0.2s, background 0.2s;
+      transform: translate(-50%, -50%);
+    }
+    .cursor-ring {
+      position: fixed;
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--accent);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      transition: transform 0.15s ease, width 0.2s, height 0.2s, border-color 0.2s, background 0.2s;
+      transform: translate(-50%, -50%);
+      backdrop-filter: blur(2px);
+    }
+    .cursor-ring.hover {
+      width: 65px;
+      height: 65px;
+      background: rgba(104, 227, 131, 0.15);
+      border-color: var(--accent-dark);
+      backdrop-filter: blur(4px);
+    }
+    .cursor-dot.hover {
+      width: 12px;
+      height: 12px;
+      background: var(--accent-dark);
+    }
+    a, button, .btn, .card, .toc-item, .arch-card, .video-container, 
+    .refs-list li, .conclusion-card, .nav a, .bottom-nav a, .logo,
+    .timeline .tl-item, .info-box, .side-image {
+      cursor: none;
+    }
+
+    /* HEADER */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      height: var(--header-h);
+      background: rgba(245,245,245,.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(0,0,0,.06);
+      transition: box-shadow .3s;
+    }
+    header.scrolled { box-shadow: 0 4px 24px rgba(0,0,0,.08); }
+    .header-inner {
+      max-width: 1280px; margin: 0 auto; padding: 0 32px;
+      height: 100%; display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { font-size: 22px; font-weight: 900; text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .logo span { color: var(--accent); }
+    nav { display: flex; gap: 6px; flex-wrap: wrap; }
+    nav a {
+      text-decoration: none; color: var(--text); font-weight: 600; font-size: 13px;
+      padding: 8px 14px; border-radius: 30px; transition: background .2s, color .2s;
+      white-space: nowrap;
+    }
+    nav a:hover, nav a.active { background: var(--accent); color: #fff; }
+    .burger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 6px; }
+    .burger span { display: block; width: 24px; height: 2px; background: var(--text); border-radius: 2px; transition: .3s; }
+
+    /* PAGE SYSTEM */
+    .page { min-height: 100vh; padding-top: var(--header-h); display: none; }
+    .page.active { display: block; }
+
+    /* MOVING TEXT */
+    .marquee-wrap { overflow: hidden; background: var(--text); padding: 16px 0; }
+    .marquee-track { display: flex; animation: marquee 30s linear infinite; width: max-content; }
+    .marquee-track span { font-size: 20px; font-weight: 700; color: #fff; padding: 0 48px; white-space: nowrap; }
+    .marquee-track span em { color: var(--accent); font-style: normal; }
+    @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    /* HERO */
+    .hero {
+      min-height: calc(100vh - var(--header-h));
+      display: flex; align-items: center;
+      position: relative; overflow: hidden;
+    }
+    .hero-inner {
+      max-width: 1280px; margin: 0 auto; padding: 60px 32px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    }
+    .hero-subtitle-top { font-size: 20px; font-weight: 600; color: var(--accent); margin-bottom: 12px; }
+    .hero-title { font-size: clamp(40px, 6vw, 80px); font-weight: 900; line-height: 1.05; margin-bottom: 24px; }
+    .hero-title em { color: var(--accent); font-style: normal; }
+    .hero-desc { font-size: 17px; color: var(--text-muted); line-height: 1.7; margin-bottom: 36px; max-width: 520px; }
+    .btn-group { display: flex; gap: 16px; flex-wrap: wrap; }
+    .btn {
+      padding: 16px 32px; border-radius: 50px; font-size: 15px; font-weight: 700;
+      text-decoration: none; cursor: pointer; border: none; display: inline-block; transition: .2s;
+    }
+    .btn-primary { background: var(--text); color: #fff; }
+    .btn-primary:hover { background: #333; transform: translateY(-2px); }
+    .btn-outline { background: transparent; color: var(--text); border: 2px solid var(--text); }
+    .btn-outline:hover { background: var(--text); color: #fff; transform: translateY(-2px); }
+
+    /* VIDEO CONTAINER */
+    .video-container {
+      background: linear-gradient(135deg, #1a1a2e, #0f0f1a);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,.2);
+      transition: transform .3s, box-shadow .3s;
+    }
+    .video-container:hover { transform: translateY(-5px); box-shadow: 0 25px 50px rgba(0,0,0,.3); }
+    .video-container video, .video-container iframe {
+      width: 100%;
+      display: block;
+      border-radius: 20px;
+    }
+    .hero-video { min-width: 280px; }
+
+    /* SECTIONS */
+    .section { padding: 100px 32px; max-width: 1280px; margin: 0 auto; }
+    .section-tag { font-size: 14px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
+    .section-title { font-size: clamp(30px, 4vw, 52px); font-weight: 900; line-height: 1.1; margin-bottom: 20px; }
+    .section-subtitle { font-size: 17px; color: var(--text-muted); line-height: 1.7; max-width: 700px; margin-bottom: 60px; }
+
+    /* CARDS */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; }
+    .card {
+      background: #fff; border-radius: 20px; padding: 32px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.06);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .card:hover { transform: translateY(-6px); box-shadow: 0 12px 40px rgba(0,0,0,.12); }
+    .card-icon { width: 56px; height: 56px; background: var(--accent); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 20px; }
+    .card h3 { font-size: 20px; font-weight: 800; margin-bottom: 12px; }
+    .card p { font-size: 15px; color: var(--text-muted); line-height: 1.7; }
+
+    /* SIDE IMAGE для архитектуры и типологии */
+    .two-col-with-image {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 40px;
+      align-items: start;
+    }
+    .side-image {
+      background: #fff;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease;
+    }
+    .side-image:hover {
+      transform: translateY(-5px);
+    }
+    .side-image img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .side-image-caption {
+      padding: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      background: #fff;
+      border-top: 1px solid #eee;
+    }
+
+    /* TOC ITEMS */
+    .toc-list { list-style: none; display: flex; flex-direction: column; gap: 0; max-width: 800px; margin: 0 auto; }
+    .toc-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px; border-bottom: 1px solid rgba(0,0,0,.08);
+      cursor: pointer; transition: .2s; background: #fff; border-radius: 16px; margin-bottom: 12px;
+    }
+    .toc-item:hover { padding-left: 32px; background: var(--bg2); transform: translateX(4px); }
+    .toc-item-left { display: flex; align-items: center; gap: 20px; }
+    .toc-num { font-size: 13px; font-weight: 700; color: var(--accent); min-width: 32px; background: #e8f5e9; padding: 6px 12px; border-radius: 40px; text-align: center; }
+    .toc-name { font-size: 18px; font-weight: 700; }
+    .toc-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .toc-arrow { color: var(--accent); font-size: 20px; transition: transform .2s; }
+
+    /* TWO COL */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
+    .two-col-text p { font-size: 16px; color: var(--text-muted); line-height: 1.8; margin-bottom: 16px; }
+
+    /* TIMELINE */
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .tl-item { display: flex; gap: 24px; padding-bottom: 40px; position: relative; }
+    .tl-item::before { content: ''; position: absolute; left: 20px; top: 40px; bottom: 0; width: 2px; background: var(--bg2); }
+    .tl-item:last-child::before { display: none; }
+    .tl-dot { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; position: relative; z-index: 1; transition: transform .2s; }
+    .tl-body h4 { font-size: 19px; font-weight: 800; margin-bottom: 8px; margin-top: 8px; }
+    .tl-body p { font-size: 15px; color: var(--text-muted); line-height: 1.7; }
+
+    /* Стили для интерактивных элементов эволюции */
+    .tl-item.interactive-evolution {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .tl-item.interactive-evolution:hover {
+      transform: translateX(8px);
+    }
+    .tl-item.interactive-evolution:hover .tl-dot {
+      transform: scale(1.15);
+      background: var(--accent-dark);
+      box-shadow: 0 0 15px rgba(104, 227, 131, 0.5);
+    }
+    .tl-item.interactive-evolution:hover .evolution-year-title {
+      color: var(--accent);
+      transition: color 0.2s;
+    }
+    .tl-item.interactive-evolution {
+      position: relative;
+    }
+    .tl-item.interactive-evolution::after {
+      content: "🔍 Нажмите для просмотра";
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.8);
+      color: var(--accent);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .tl-item.interactive-evolution:hover::after {
+      opacity: 1;
+    }
+
+    /* Модальное окно для эволюции (без кнопки скачивания) */
+    .evolution-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+    }
+    .evolution-modal-content {
+      background: #fff;
+      max-width: 600px;
+      width: 90%;
+      border-radius: 28px;
+      position: relative;
+      animation: modalFadeIn 0.3s ease;
+      overflow: hidden;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .evolution-modal-close {
+      position: absolute;
+      top: 18px;
+      right: 24px;
+      font-size: 32px;
+      font-weight: 300;
+      cursor: pointer;
+      color: #999;
+      z-index: 10;
+      transition: color 0.2s;
+    }
+    .evolution-modal-close:hover { color: var(--accent); }
+    .evolution-modal-content h3 {
+      font-size: 24px;
+      font-weight: 800;
+      padding: 24px 28px 12px;
+      margin: 0;
+      color: var(--text);
+      border-bottom: 2px solid var(--accent);
+      display: inline-block;
+      background: #fff;
+    }
+    .evolution-modal-image-container {
+      padding: 20px 28px;
+      background: #f8f8f8;
+      text-align: center;
+    }
+    #modalEvolutionImg {
+      max-width: 100%;
+      max-height: 350px;
+      border-radius: 16px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      object-fit: contain;
+    }
+    .evolution-modal-desc {
+      padding: 0 28px 28px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    /* ARCH CARDS */
+    .arch-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+    .arch-card { background: #fff; border-radius: 20px; padding: 36px; border-left: 5px solid var(--accent); transition: transform .2s; cursor: pointer; }
+    .arch-card:hover { transform: translateX(5px); }
+    .arch-card h3 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .arch-card .arch-badge { display: inline-block; background: var(--accent); color: #111; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+    .arch-card p { font-size: 15px; color: var(--text-muted); line-height: 1.7; }
+
+    /* REFS */
+    .refs-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+    .refs-list li {
+      background: #fff; padding: 20px 24px; border-radius: 14px;
+      font-size: 15px; color: var(--text-muted); line-height: 1.6;
+      display: flex; gap: 16px; align-items: flex-start;
+      box-shadow: 0 2px 12px rgba(0,0,0,.05);
+      transition: .2s; cursor: pointer;
+    }
+    .refs-list li:hover { box-shadow: 0 6px 24px rgba(0,0,0,.1); transform: translateX(4px); background: #f9f9ff; }
+    .ref-num { font-weight: 900; color: var(--accent); font-size: 16px; min-width: 32px; cursor: pointer; }
+    .ref-link { color: var(--text); text-decoration: none; flex: 1; cursor: pointer; }
+    .ref-link:hover { color: var(--accent-dark); text-decoration: underline; }
+
+    /* CONCLUSION CARDS */
+    .conclusion-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .conclusion-card { background: #fff; border-radius: 20px; padding: 32px; position: relative; overflow: hidden; transition: transform .2s; cursor: pointer; }
+    .conclusion-card:hover { transform: translateY(-4px); }
+    .conclusion-card::before { content: attr(data-num); font-size: 120px; font-weight: 900; color: var(--accent); opacity: .07; position: absolute; top: -20px; right: 10px; line-height: 1; }
+    .conclusion-card h4 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+    .conclusion-card p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+
+    /* BOTTOM NAV */
+    .bottom-nav {
+      background: var(--text); padding: 32px;
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      flex-wrap: wrap;
+    }
+    .bottom-nav a {
+      color: #aaa; text-decoration: none; font-size: 14px; font-weight: 600;
+      padding: 10px 20px; border-radius: 30px; border: 1px solid #333;
+      transition: .2s;
+    }
+    .bottom-nav a:hover, .bottom-nav a.active { background: var(--accent); color: #111; border-color: var(--accent); }
+
+    .info-box { background: #fff; border-radius: 16px; padding: 28px; border-left: 5px solid var(--accent); margin: 24px 0; cursor: pointer; transition: transform .2s; }
+    .info-box:hover { transform: translateX(5px); }
+    .info-box h4 { font-size: 16px; font-weight: 800; margin-bottom: 10px; }
+
+    /* VIDEO UPLOAD */
+    .video-upload {
+      text-align: center;
+      margin-top: 12px;
+    }
+    .upload-btn {
+      background: var(--accent);
+      color: #111;
+      padding: 8px 16px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-block;
+      transition: .2s;
+      border: none;
+    }
+    input[type="file"] {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      nav { display: none; }
+      nav.open { display: flex; flex-direction: column; position: absolute; top: var(--header-h); left: 0; right: 0; background: #fff; padding: 16px; gap: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+      .burger { display: flex; }
+      .hero-inner { grid-template-columns: 1fr; }
+      .two-col { grid-template-columns: 1fr; }
+      .two-col-with-image { grid-template-columns: 1fr; }
+      .arch-grid { grid-template-columns: 1fr; }
+      .conclusion-grid { grid-template-columns: 1fr; }
+      .toc-item { flex-direction: column; align-items: flex-start; gap: 12px; }
+      body { cursor: auto; }
+      .cursor-dot, .cursor-ring { display: none; }
+      .tl-item.interactive-evolution::after { display: none; }
+    }
+    .fadeIn, .fadeInLeft, .fadeInRight, .fadeInUp { animation-fill-mode: forwards; opacity: 0; }
+    @keyframes fadeInUp2 { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeInLeft2 { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes fadeInRight2 { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+    .fadeIn { animation: fadeIn2 .7s ease forwards; }
+    .fadeInLeft { animation: fadeInLeft2 .8s ease forwards; }
+    .fadeInRight { animation: fadeInRight2 .8s ease forwards; }
+    .fadeInUp { animation: fadeInUp2 .7s ease forwards; }
+    @keyframes fadeIn2 { from { opacity:0; } to { opacity:1; } }
+    .d1 { animation-delay: .15s; }
+    .d2 { animation-delay: .3s; }
+  </style>
+</head>
+<body>
+
+<div class="cursor-dot"></div>
+<div class="cursor-ring"></div>
+
+<header id="site-header">
+  <div class="header-inner">
+    <a class="logo" href="#" onclick="showPage('home')">МПС <span>●</span></a>
+    <nav id="main-nav">
+      <a href="#" onclick="showPage('home')" data-page="home" class="active">Главная</a>
+      <a href="#" onclick="showPage('evolution')" data-page="evolution">Эволюция</a>
+      <a href="#" onclick="showPage('architecture')" data-page="architecture">Архитектура</a>
+      <a href="#" onclick="showPage('typology')" data-page="typology">Типология</a>
+      <a href="#" onclick="showPage('software')" data-page="software">ПО</a>
+      <a href="#" onclick="showPage('conclusion')" data-page="conclusion">Выводы</a>
+      <a href="#" onclick="showPage('literature')" data-page="literature">Литература</a>
+    </nav>
+    <div class="burger" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+  </div>
+</header>
+
+<div id="modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; justify-content:center; align-items:center;">
+  <div style="background:#fff; max-width:500px; padding:32px; border-radius:24px; position:relative;">
+    <span onclick="closeModal()" style="position:absolute; top:16px; right:20px; font-size:28px; cursor:pointer;">&times;</span>
+    <h3 id="modal-title">Информация</h3>
+    <p id="modal-desc">Описание источника</p>
+    <a href="#" id="modal-url" class="modal-link" style="margin-top:20px; display:inline-block; background:#68e383; padding:10px 24px; border-radius:40px; text-decoration:none; color:#111; font-weight:600;" target="_blank">Перейти к источнику</a>
+  </div>
+</div>
+
+<!-- ========== ГЛАВНАЯ ========== -->
+<div id="page-home" class="page active">
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="fadeInLeft">
+        <div class="hero-subtitle-top">Образовательный ресурс</div>
+        <h1 class="hero-title">Много<span><em>процессорные</em></span> системы</h1>
+        <p class="hero-desc">Изучение архитектур, эволюции и программного обеспечения для параллельных вычислений. Полное погружение в тему многопроцессорных вычислительных систем.</p>
+        <div class="btn-group">
+          <a class="btn btn-primary" href="#" onclick="showPage('evolution')">Начать изучение</a>
+          <a class="btn btn-outline" href="#toc">К содержанию</a>
+        </div>
+      </div>
+      <div class="fadeInRight d2 hero-video">
+        <div class="video-container" id="homeVideoContainer">
+          <video id="homeVideo" width="100%" controls style="border-radius: 20px; max-height: 300px; object-fit: cover;">
+            <source src="введение.mp4" type="video/mp4">
+          </video>
+        </div>
+        <div class="video-upload">
+          <input type="file" id="homeVideoUpload" accept="video/*">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="marquee-wrap"><div class="marquee-track"><span>Многопроцессорные системы</span><span><em>·</em></span><span>Параллельные вычисления</span><span><em>·</em></span><span>SMP / NUMA / MPP</span><span><em>·</em></span><span>Архитектура ЭВМ</span><span><em>·</em></span><span>Классификация Флинна</span><span><em>·</em></span></div></div>
+
+  <div id="toc" style="background: var(--bg2); padding: 60px 0;">
+    <div class="section"><div class="section-tag fadeInUp">Навигация</div><h2 class="section-title fadeInUp d1">Содержание ресурса</h2>
+      <ul class="toc-list fadeInUp d2">
+        <li class="toc-item" onclick="showPage('evolution')"><div class="toc-item-left"><span class="toc-num">01</span><div><div class="toc-name">Эволюция многопроцессорных систем</div><div class="toc-sub">От CDC 6600 до процессоров 2026 года</div></div></div><i class="fa-solid fa-arrow-right toc-arrow"></i></li>
+        <li class="toc-item" onclick="showPage('architecture')"><div class="toc-item-left"><span class="toc-num">02</span><div><div class="toc-name">Архитектурная организация МПС</div><div class="toc-sub">Таксономия Флинна, SMP, AMP, когерентность кэша</div></div></div><i class="fa-solid fa-arrow-right toc-arrow"></i></li>
+        <li class="toc-item" onclick="showPage('typology')"><div class="toc-item-left"><span class="toc-num">03</span><div><div class="toc-name">Типология многопроцессорных архитектур</div><div class="toc-sub">Конвейер, SIMD, MIMD, GPU, TPU, MSIMD</div></div></div><i class="fa-solid fa-arrow-right toc-arrow"></i></li>
+        <li class="toc-item" onclick="showPage('software')"><div class="toc-item-left"><span class="toc-num">04</span><div><div class="toc-name">Программное обеспечение для МПС</div><div class="toc-sub">Linux в HPC, OpenMP, MPI, контейнеризация</div></div></div><i class="fa-solid fa-arrow-right toc-arrow"></i></li>
+        <li class="toc-item" onclick="showPage('conclusion')"><div class="toc-item-left"><span class="toc-num">05</span><div><div class="toc-name">Выводы</div><div class="toc-sub">Итоги исследования и заключение</div></div></div><i class="fa-solid fa-arrow-right toc-arrow"></i></li>
+        <li class="toc-item" onclick="showPage('literature')"><div class="toc-item-left"><span class="toc-num">06</span><div><div class="toc-name">Список литературы</div><div class="toc-sub">16 источников — интерактивный список</div></div></div><i class="fa-solid fa-arrow-right toc-arrow"></i></li>
+      </ul>
+    </div>
+  </div>
+  <div class="bottom-nav"><a href="#" onclick="showPage('home')" class="active">Главная</a><a href="#" onclick="showPage('evolution')">Эволюция →</a></div>
+</div>
+
+<!-- ========== ЭВОЛЮЦИЯ (с интерактивными карточками, локальные изображения, без скачивания) ========== -->
+<div id="page-evolution" class="page">
+  <section class="hero" style="min-height: 70vh;">
+    <div class="hero-inner">
+      <div class="fadeInLeft"><div class="section-tag">Раздел 1</div><h1 class="hero-title" style="font-size: clamp(32px,5vw,64px);">Эволюция многопроцессорных систем</h1><p class="hero-desc">От CDC 6600 до процессоров 2026 года: 60 лет развития параллельных архитектур.</p></div>
+      <div class="fadeInRight d2 hero-video">
+        <div class="video-container" id="evolutionVideoContainer">
+          <video id="evolutionVideo" width="100%" controls style="border-radius: 20px; max-height: 300px; object-fit: cover;">
+            <source src="1.1.mp4" type="video/mp4">
+          </video>
+        </div>
+        <div class="video-upload">
+          <input type="file" id="evolutionVideoUpload" accept="video/*">
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="marquee-wrap"><div class="marquee-track"><span>CDC 6600</span><span><em>·</em></span><span>Cray-1</span><span><em>·</em></span><span>big.LITTLE</span><span><em>·</em></span><span>Dimensity 9300</span><span><em>·</em></span><span>Nvidia Vera</span><span><em>·</em></span></div></div>
+  <div class="section fadeIn">
+    <div class="section-tag">1.1</div>
+    <h2 class="section-title">История развития</h2>
+    <div class="two-col">
+      <div class="two-col-text">
+        <p>Многопроцессорная система — вычислительный комплекс с двумя и более процессорами. Ключевая особенность — совместное использование общей памяти.</p>
+        <div class="info-box"><h4>Современный этап (2025–2026)</h4><p>Переход к 2-нанометровому техпроцессу GAA, снижение энергопотребления на 25–30%.</p></div>
+      </div>
+      <div>
+        <div class="timeline">
+          <!-- Элемент 1: CDC 6600 -->
+          <div class="tl-item interactive-evolution" data-year="1964" data-title="CDC 6600" data-img="1рис.JPG" data-description="CDC 6600 — первый суперкомпьютер с несколькими процессорами. Разработан Сеймуром Креем в Control Data Corporation. Имел 10 периферийных процессоров и один центральный.">
+            <div class="tl-dot">64</div>
+            <div class="tl-body">
+              <h4 class="evolution-year-title">1964 — CDC 6600</h4>
+              <p>Первый суперкомпьютер с несколькими процессорами.</p>
+            </div>
+          </div>
+          <!-- Элемент 2: Cray-1 -->
+          <div class="tl-item interactive-evolution" data-year="1976" data-title="Cray-1" data-img="2рис.JPG" data-description="Cray-1 — легендарный суперкомпьютер, выпущенный в 1976 году. Первая система, успешно реализовавшая векторную обработку данных. Производительность достигала 80 MFLOPS, что было феноменально для своего времени.">
+            <div class="tl-dot">76</div>
+            <div class="tl-body">
+              <h4 class="evolution-year-title">1976 — Cray-1</h4>
+              <p>Векторная обработка данных.</p>
+            </div>
+          </div>
+          <!-- Элемент 3: Двухъядерные x86 -->
+          <div class="tl-item interactive-evolution" data-year="2005" data-title="Двухъядерные x86" data-img="3рис.JPG" data-description="2005 год — массовое появление двухъядерных процессоров. Intel Pentium D и AMD Athlon 64 X2 открыли эру многоядерных систем для массового потребителя. Это изменило подход к разработке ПО.">
+            <div class="tl-dot">05</div>
+            <div class="tl-body">
+              <h4 class="evolution-year-title">2005 — Двухъядерные x86</h4>
+              <p>Начало массовой многопроцессорности.</p>
+            </div>
+          </div>
+          <!-- Элемент 4: Nvidia Vera 2026 -->
+          <div class="tl-item interactive-evolution" data-year="2026" data-title="Nvidia Vera" data-img="4рис.JPG" data-description="Nvidia Vera (2026) — новейший процессор на архитектуре Arm v9.2-A. 88 ядер, 2-нанометровый техпроцесс GAA, поддержка PCIe 6.0 и DDR6. Оптимизирован для AI-вычислений и HPC-кластеров.">
+            <div class="tl-dot">26</div>
+            <div class="tl-body">
+              <h4 class="evolution-year-title">2026 — Nvidia Vera</h4>
+              <p>88 ядер на Arm v9.2-A.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-nav"><a href="#" onclick="showPage('home')">← Главная</a><a href="#" onclick="showPage('evolution')" class="active">Эволюция</a><a href="#" onclick="showPage('architecture')">Архитектура →</a></div>
+</div>
+
+<!-- Модальное окно для эволюции (без кнопки скачивания) -->
+<div id="evolutionModal" class="evolution-modal">
+  <div class="evolution-modal-content">
+    <span class="evolution-modal-close">&times;</span>
+    <h3 id="modalEvolutionTitle">CDC 6600</h3>
+    <div class="evolution-modal-image-container">
+      <img id="modalEvolutionImg" src="" alt="Эволюция МПС">
+    </div>
+    <p id="modalEvolutionDesc" class="evolution-modal-desc"></p>
+  </div>
+</div>
+
+<!-- ========== АРХИТЕКТУРА (с боковой картинкой) ========== -->
+<div id="page-architecture" class="page">
+  <section class="hero" style="min-height: 70vh;">
+    <div class="hero-inner">
+      <div class="fadeInLeft"><div class="section-tag">Раздел 2</div><h1 class="hero-title" style="font-size: clamp(32px,5vw,64px);">Архитектурная организация МПС</h1><p class="hero-desc">Таксономия Флинна: SISD, SIMD, MISD, MIMD. SMP и AMP.</p></div>
+      <div class="fadeInRight d2 hero-video">
+        <div class="video-container" id="architectureVideoContainer">
+          <video id="architectureVideo" width="100%" controls style="border-radius: 20px; max-height: 300px; object-fit: cover;">
+            <source src="1.2.mp4" type="video/mp4">
+          </video>
+        </div>
+        <div class="video-upload">
+          <input type="file" id="architectureVideoUpload" accept="video/*">
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="marquee-wrap"><div class="marquee-track"><span>SISD</span><span><em>·</em></span><span>SIMD</span><span><em>·</em></span><span>MISD</span><span><em>·</em></span><span>MIMD</span><span><em>·</em></span><span>SMP</span><span><em>·</em></span><span>AMP</span><span><em>·</em></span></div></div>
+  <div class="section fadeIn">
+    <div class="two-col-with-image">
+      <div>
+        <div class="arch-grid">
+          <div class="arch-card"><div class="arch-badge">SISD</div><h3>Single Instruction / Single Data</h3><p>Классическая машина фон Неймана.</p></div>
+          <div class="arch-card"><div class="arch-badge">SIMD</div><h3>Single Instruction / Multiple Data</h3><p>Основа GPU, AVX-512, SVE2.</p></div>
+          <div class="arch-card"><div class="arch-badge">MISD</div><h3>Multiple Instruction / Single Data</h3><p>Системы повышенной надёжности.</p></div>
+          <div class="arch-card"><div class="arch-badge">MIMD</div><h3>Multiple Instruction / Multiple Data</h3><p>Многоядерные CPU, кластеры.</p></div>
+        </div>
+      </div>
+      <div class="side-image">
+        <img src="1.2рис.JPG" alt="Таксономия Флинна">
+        <div class="side-image-caption">Классификация Флинна — основа архитектур МПС</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-nav"><a href="#" onclick="showPage('evolution')">← Эволюция</a><a href="#" onclick="showPage('architecture')" class="active">Архитектура</a><a href="#" onclick="showPage('typology')">Типология →</a></div>
+</div>
+
+<!-- ========== ТИПОЛОГИЯ (с боковой картинкой) ========== -->
+<div id="page-typology" class="page">
+  <section class="hero" style="min-height: 70vh;">
+    <div class="hero-inner">
+      <div class="fadeInLeft"><div class="section-tag">Раздел 3</div><h1 class="hero-title" style="font-size: clamp(32px,5vw,64px);">Типология многопроцессорных архитектур</h1><p class="hero-desc">Конвейер, SIMD, MIMD, гибридные MSIMD.</p></div>
+      <div class="fadeInRight d2 hero-video">
+        <div class="video-container" id="typologyVideoContainer">
+          <video id="typologyVideo" width="100%" controls style="border-radius: 20px; max-height: 300px; object-fit: cover;">
+            <source src="1.3.mp4" type="video/mp4">
+          </video>
+        </div>
+        <div class="video-upload">
+          <input type="file" id="typologyVideoUpload" accept="video/*">
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="marquee-wrap"><div class="marquee-track"><span>Конвейер</span><span><em>·</em></span><span>Векторные операции</span><span><em>·</em></span><span>GPU</span><span><em>·</em></span><span>TPU</span><span><em>·</em></span><span>MSIMD</span><span><em>·</em></span></div></div>
+  <div class="section fadeIn">
+    <div class="two-col-with-image">
+      <div>
+        <div class="cards">
+          <div class="card"><div class="card-icon">⚙️</div><h3>Конвейерная обработка</h3><p>Глубина до 20 стадий.</p></div>
+          <div class="card"><div class="card-icon">🖥️</div><h3>SIMD-машины</h3><p>GPU, TPU.</p></div>
+          <div class="card"><div class="card-icon">🔗</div><h3>MIMD-системы</h3><p>Многоядерные CPU.</p></div>
+          <div class="card"><div class="card-icon">🔀</div><h3>Гибридные MSIMD</h3><p>Суперкомпьютеры Frontier.</p></div>
+        </div>
+      </div>
+      <div class="side-image">
+        <img src="1.3рис.JPG" alt="Типология архитектур">
+        <div class="side-image-caption">Основные типы параллельных архитектур</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-nav"><a href="#" onclick="showPage('architecture')">← Архитектура</a><a href="#" onclick="showPage('typology')" class="active">Типология</a><a href="#" onclick="showPage('software')">ПО →</a></div>
+</div>
+
+<!-- ========== ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ ========== -->
+<div id="page-software" class="page">
+  <section class="hero" style="min-height: 70vh;">
+    <div class="hero-inner">
+      <div class="fadeInLeft"><div class="section-tag">Раздел 4</div><h1 class="hero-title" style="font-size: clamp(32px,5vw,64px);">Программное обеспечение для МПС</h1><p class="hero-desc">Три уровня ПО. Linux — 100% суперкомпьютеров TOP500.</p></div>
+      <div class="fadeInRight d2 hero-video">
+        <div class="video-container" id="softwareVideoContainer">
+          <video id="softwareVideo" width="100%" controls style="border-radius: 20px; max-height: 300px; object-fit: cover;">
+            <source src="1.4.mp4" type="video/mp4">
+          </video>
+        </div>
+        <div class="video-upload">
+          <input type="file" id="softwareVideoUpload" accept="video/*">
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="marquee-wrap"><div class="marquee-track"><span>Linux</span><span><em>·</em></span><span>TOP500</span><span><em>·</em></span><span>OpenMP</span><span><em>·</em></span><span>MPI</span><span><em>·</em></span><span>CUDA</span><span><em>·</em></span><span>Singularity</span><span><em>·</em></span></div></div>
+  <div class="section fadeIn">
+    <div class="cards">
+      <div class="card"><div class="card-icon">🖧</div><h3>Системное ПО</h3><p>Linux 6.x, SMP-планировщик.</p></div>
+      <div class="card"><div class="card-icon">🔌</div><h3>Промежуточное ПО</h3><p>OpenMP, MPI, CUDA.</p></div>
+      <div class="card"><div class="card-icon">💻</div><h3>Прикладное ПО</h3><p>GCC, Intel oneAPI, MATLAB.</p></div>
+    </div>
+  </div>
+  <div class="bottom-nav"><a href="#" onclick="showPage('typology')">← Типология</a><a href="#" onclick="showPage('software')" class="active">ПО</a><a href="#" onclick="showPage('conclusion')">Выводы →</a></div>
+</div>
+
+<!-- ========== ВЫВОДЫ ========== -->
+<div id="page-conclusion" class="page">
+  <section style="background: var(--text); padding: 100px 32px 60px; text-align:center;"><div><div class="section-tag" style="color:var(--accent);">Итоги</div><h1 style="font-size: clamp(36px,5vw,64px); font-weight:900; color:#fff;">Выводы и заключение</h1></div></section>
+  <div class="section fadeIn">
+    <div class="conclusion-grid">
+      <div class="conclusion-card" data-num="1"><h4>Эволюция</h4><p>Отказ от big.LITTLE, 2-нм техпроцесс.</p></div>
+      <div class="conclusion-card" data-num="2"><h4>Таксономия Флинна</h4><p>SISD, SIMD, MISD, MIMD — актуальна.</p></div>
+      <div class="conclusion-card" data-num="3"><h4>Типология</h4><p>Конвейер, SIMD, MIMD, MSIMD.</p></div>
+      <div class="conclusion-card" data-num="4"><h4>Программное обеспечение</h4><p>Linux — 100% TOP500.</p></div>
+      <div class="conclusion-card" data-num="5"><h4>Электронный ресурс</h4><p>7 разделов, видео, интерактив.</p></div>
+      <div class="conclusion-card" data-num="6"><h4>Общее заключение</h4><p>МПС — ключевая технология.</p></div>
+    </div>
+  </div>
+  <div class="bottom-nav"><a href="#" onclick="showPage('software')">← ПО</a><a href="#" onclick="showPage('conclusion')" class="active">Выводы</a><a href="#" onclick="showPage('literature')">Литература →</a></div>
+</div>
+
+<!-- ========== ЛИТЕРАТУРА ========== -->
+<div id="page-literature" class="page">
+  <section style="background: var(--bg2); padding: 100px 32px 60px; text-align:center;"><div><div class="section-tag">Библиография</div><h1 style="font-size: clamp(32px,5vw,56px); font-weight:900;">Список литературы</h1><p>16 интерактивных источников — нажмите для просмотра информации</p></div></section>
+  <div class="section fadeIn">
+    <ul class="refs-list">
+      <li><span class="ref-num">1</span><span class="ref-link" onclick="showSource(1, 'Богачев К.Ю. Параллельное программирование в среде MATLAB', 'Учебное пособие для вузов. М.: Юрайт, 2024. 180 с. ISBN 978-5-534-20123-7.', 'https://djvu.online/file/UGkzlUYahMvIM?ysclid=mnf39o5tqu826425220')">Богачев, К. Ю. Параллельное программирование в среде MATLAB. — М.: Юрайт, 2024.</span></li>
+      <li><span class="ref-num">2</span><span class="ref-link" onclick="showSource(2, 'Боресков А.В. Параллельные вычисления на GPU', 'Архитектура и программная модель CUDA. М.: ДМК Пресс, 2023. 336 с.', 'https://library.tsilikin.ru/%D0%A2%D0%B5%D1%85%D0%BD%D0%B8%D0%BA%D0%B0/%D0%9F%D1%80%D0%BE%D0%B3%D1%80%D0%B0%D0%BC%D0%BC%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5/GPU/%D0%9F%D0%B0%D1%80%D0%B0%D0%BB%D0%BB%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5%20%D0%B2%D1%8B%D1%87%D0%B8%D1%81%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F%20%D0%BD%D0%B0%20GPU.pdf')">Боресков, А. В. Параллельные вычисления на GPU. — ДМК Пресс, 2023.</span></li>
+      <li><span class="ref-num">3</span><span class="ref-link" onclick="showSource(3, 'Воеводин В.В. Параллельные вычисления', 'Классическая монография. СПб.: БХВ-Петербург, 2002. 608 с.', 'https://docs.yandex.ru/docs/view?tm=1774990189&tld=ru&name=voevodin.pdf&text=%D0%92%D0%BE%D0%B5%D0%B2%D0%BE%D0%B4%D0%B8%D0%BD%20%D0%92.%D0%92.%20%D0%9F%D0%B0%D1%80%D0%B0%D0%BB%D0%BB%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5%20%D0%B2%D1%8B%D1%87%D0%B8%D1%81%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F%20%D1%87%D0%B8%D1%82%D0%B0%D1%82%D1%8C&url=https%3A%2F%2Fparallel.ru%2Fsites%2Fdefault%2Ffiles%2Finfo%2Fparallel%2Fvoevodin%2Fvoevodin.pdf&lr=21641&mime=pdf&l10n=ru&sign=1059691e987109bf42b28998dba84b1a&keyno=0&nosw=1&serpParams=tm%3D1774990189%26tld%3Dru%26name%3Dvoevodin.pdf%26text%3D%25D0%2592%25D0%25BE%25D0%25B5%25D0%25B2%25D0%25BE%25D0%25B4%25D0%25B8%25D0%25BD%2B%25D0%2592.%25D0%2592.%2B%25D0%259F%25D0%25B0%25D1%2580%25D0%25B0%25D0%25BB%25D0%25BB%25D0%25B5%25D0%25BB%25D1%258C%25D0%25BD%25D1%258B%25D0%25B5%2B%25D0%25B2%25D1%258B%25D1%2587%25D0%25B8%25D1%2581%25D0%25BB%25D0%25B5%25D0%25BD%25D0%25B8%25D1%258F%2B%25D1%2587%25D0%25B8%25D1%2582%25D0%25B0%25D1%2582%25D1%258C%26url%3Dhttps%253A%2F%2Fparallel.ru%2Fsites%2Fdefault%2Ffiles%2Finfo%2Fparallel%2Fvoevodin%2Fvoevodin.pdf%26lr%3D21641%26mime%3Dpdf%26l10n%3Dru%26sign%3D1059691e987109bf42b28998dba84b1a%26keyno%3D0%26nosw%3D1')">Воеводин, В. В. Параллельные вычисления. — БХВ-Петербург, 2002.</span></li>
+      <li><span class="ref-num">4</span><span class="ref-link" onclick="showSource(4, 'Гергель В.П. Высокопроизводительные вычисления', 'Для многоядерных систем. М.: МГУ, 2024. 544 с.', 'https://github.com/artjomjuferov/university/blob/master/Beljakova/%D0%93%D0%B5%D1%80%D0%B3%D0%B5%D0%BB%D1%8C%20%D0%92.%D0%9F.%20%D0%92%D1%8B%D1%81%D0%BE%D0%BA%D0%BE%D0%BF%D1%80%D0%BE%D0%B8%D0%B7%D0%B2%D0%BE%D0%B4%D0%B8%D1%82%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D0%B5%20%D0%B2%D1%8B%D1%87%D0%B8%D1%81%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F%20%D0%B4%D0%BB%D1%8F%20%D0%BC%D0%BD%D0%BE%D0%B3%D0%BE%D1%8F%D0%B4%D0%B5%D1%80%D0%BD%D1%8B%D1%85%20%D0%BC%D0%BD%D0%BE%D0%B3%D0%BE%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%D0%BE%D1%80%D0%BD%D1%8B%D1%85%20%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%20(2010).pdf?ysclid=mnf3dfguf9470204771')">Гергель, В. П. Высокопроизводительные вычисления. — МГУ, 2024.</span></li>
+      <li><span class="ref-num">5</span><span class="ref-link" onclick="showSource(5, 'Гергель В.П. Основы параллельных вычислений', 'Учебник. М.: ИНФРА-М, 2023.', 'https://docs.yandex.ru/docs/view?tm=1774990290&tld=ru&lang=ru&name=gergel.pdf&text=%D0%93%D0%B5%D1%80%D0%B3%D0%B5%D0%BB%D1%8C%20%D0%92.%D0%9F.%20%D0%9E%D1%81%D0%BD%D0%BE%D0%B2%D1%8B%20%D0%BF%D0%B0%D1%80%D0%B0%D0%BB%D0%BB%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D1%85%20%D0%B2%D1%8B%D1%87%D0%B8%D1%81%D0%BB%D0%B5%D0%BD%D0%B8%D0%B9&url=https%3A%2F%2Fhpc.icc.ru%2Fdocumentation%2Funn%2Fgergel.pdf&lr=21641&mime=pdf&l10n=ru&sign=d25547275bf9d8d89fed6873693f3498&keyno=0&nosw=1&serpParams=tm%3D1774990290%26tld%3Dru%26lang%3Dru%26name%3Dgergel.pdf%26text%3D%25D0%2593%25D0%25B5%25D1%2580%25D0%25B3%25D0%25B5%25D0%25BB%25D1%258C%2B%25D0%2592.%25D0%259F.%2B%25D0%259E%25D1%2581%25D0%25BD%25D0%25BE%25D0%25B2%25D1%258B%2B%25D0%25BF%25D0%25B0%25D1%2580%25D0%25B0%25D0%25BB%25D0%25BB%25D0%25B5%25D0%25BB%25D1%258C%25D0%25BD%25D1%258B%25D1%2585%2B%25D0%25B2%25D1%258B%25D1%2587%25D0%25B8%25D1%2581%25D0%25BB%25D0%25B5%25D0%25BD%25D0%25B8%25D0%25B9%26url%3Dhttps%253A%2F%2Fhpc.icc.ru%2Fdocumentation%2Funn%2Fgergel.pdf%26lr%3D21641%26mime%3Dpdf%26l10n%3Dru%26sign%3Dd25547275bf9d8d89fed6873693f3498%26keyno%3D0%26nosw%3D1')">Гергель, В. П. Основы параллельных вычислений. — ИНФРА-М, 2023.</span></li>
+      <li><span class="ref-num">6</span><span class="ref-link" onclick="showSource(6, 'Корнеев В.В. Параллельные вычислительные системы', 'М.: Нолидж, 1999. 320 с.', 'https://bookmix.ru/book.phtml?id=362313&ysclid=mnf3f0eaf3660234623')">Корнеев, В. В. Параллельные вычислительные системы. — Нолидж, 1999.</span></li>
+      <li><span class="ref-num">7</span><span class="ref-link" onclick="showSource(7, 'Корнеев В.Д. Программное обеспечение МПС', 'СПб.: Лань, 2024. 256 с.', 'https://studfile.net/preview/2026746/page:13/')">Корнеев, В. Д. Программное обеспечение многопроцессорных систем. — Лань, 2024.</span></li>
+      <li><span class="ref-num">8</span><span class="ref-link" onclick="showSource(8, 'Куляс О.Л., Никитин А.В. ОС для HPC', 'Вестник компьютерных технологий, 2025. №2. С. 15–23.', 'https://studfile.net/preview/16720713/')">Куляс, О. Л., Никитин, А. В. ОС для HPC // Вестник компьютерных технологий, 2025. №2.</span></li>
+      <li><span class="ref-num">9</span><span class="ref-link" onclick="showSource(9, 'Степина В.В. Основы архитектуры ВС', 'М.: КУРС: ИНФРА-М, 2026. 288 с.', 'https://reader.z-lib.bz/read/c2d9c54f6cf691b454fa8e43d0bb3a1fdde447429880863935da3050daaee8d7/book/VlbMnoooOb/%D0%9E%D1%81%D0%BD%D0%BE%D0%B2%D1%8B-%D0%B0%D1%80%D1%85%D0%B8%D1%82%D0%B5%D0%BA%D1%82%D1%83%D1%80%D1%8B-%D1%83%D1%81%D1%82%D1%80%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%BE-%D0%B8-%D1%84%D1%83%D0%BD%D0%BA%D1%86%D0%B8%D0%BE%D0%BD%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5-%D0%B2%D1%8B%D1%87%D0%B8%D1%81%D0%BB%D0%B8%D1%82%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D1%85-%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC-%D0%A3%D1%87%D0%B5%D0%B1%D0%BD%D0%B8%D0%BA.html?client_key=1fFLi67gBrNRP1j1iPy1&extension=pdf&signature=538a96b50c022750a4b312d2aa10b0baf83ca303c8c974dd15f483f3f872a0c0&file_access_token=eyJleHAiOjE3NzU1OTUyNDcsInZlciI6IjEuMCIsInR5cCI6IkpXVCIsImFsZyI6IkhTMjU2In0.eyJzdWIiOiJmaWxlX2FjY2VzcyIsImZpbGVfc2hhMjU2IjoiYzJkOWM1NGY2Y2Y2OTFiNDU0ZmE4ZTQzZDBiYjNhMWZkZGU0NDc0Mjk4ODA4NjM5MzVkYTMwNTBkYWFlZThkNyIsImFjY2Vzc19sZXZlbCI6ImxpbWl0ZWQiLCJpc19wdWJsaWMiOnRydWV9.ZMR7ellYgxfT2yYO_D6FlBru6ujd57GmD6luFk_yo-A')">Степина, В. В. Основы архитектуры вычислительных систем. — КУРС, 2026.</span></li>
+      <li><span class="ref-num">10</span><span class="ref-link" onclick="showSource(10, 'Таненбаум Э. Архитектура компьютера', '6-е изд. СПб.: Питер, 2023. 896 с.', 'https://piter.com/product/arhitektura-kompyutera-6-e-izdanie')">Таненбаум, Э., Остин, Т. Архитектура компьютера. — Питер, 2023.</span></li>
+      <li><span class="ref-num">11</span><span class="ref-link" onclick="showSource(11, 'Хокни Р., Джессхоуп К. Параллельные ЭВМ', 'М.: Радио и связь, 1986. 392 с.', 'https://djvu.online/file/BCqLY7vk1Wkiw?ysclid=mnf3hzlpbv276946831')">Хокни, Р., Джессхоуп, К. Параллельные ЭВМ. — Радио и связь, 1986.</span></li>
+      <li><span class="ref-num">12</span><span class="ref-link" onclick="showSource(12, 'Царев Р.Ю., Кувшинов А.В. Методы организации параллельных вычислений', 'М.: КУРС, 2023. 320 с.', 'https://kursbooks.ru/catalog/parallelnye-vychisleniya/')">Царев, Р. Ю., Кувшинов, А. В. Методы организации параллельных вычислений. — КУРС, 2023.</span></li>
+      <li><span class="ref-num">13</span><span class="ref-link" onclick="showSource(13, 'ARM DynamIQ', 'Новое поколение многоядерной микроархитектуры. HiComm, 2026.', 'https://www.cnews.ru/news/top/2017-03-21_protsessornaya_arhitektura_arm_dynamiq_dlya_iskusstvennogo?ysclid=mnf3j8mxtr582320834')">ARM DynamIQ — новое поколение многоядерной архитектуры. HiComm, 2026.</span></li>
+      <li><span class="ref-num">14</span><span class="ref-link" onclick="showSource(14, 'TOP500 List', 'Рейтинг суперкомпьютеров. Июнь 2025.', 'https://www.top500.org/?ncid=no-ncid')">TOP500 List — June 2025. top500.org</span></li>
+      <li><span class="ref-num">15</span><span class="ref-link" onclick="showSource(15, 'Тренды процессоростроения 2025–2026', 'От big.LITTLE к высокопроизводительным архитектурам. Habr, 2026.', 'https://3dnews.ru/1135099/itogi-2025-protsessori?ysclid=mnf3ke2b58374377571')">Тренды процессоростроения 2025–2026. Habr, 2026.</span></li>
+      <li><span class="ref-num">16</span><span class="ref-link" onclick="showSource(16, 'Nvidia Vera CPU', 'Официальная документация. Nvidia Developer, 2026.', 'https://developer.nvidia.com/blog/nvidia-vera-cpu-delivers-high-performance-bandwidth-and-efficiency-for-ai-factories/')">Nvidia Vera CPU — официальная документация. developer.nvidia.com, 2026.</span></li>
+    </ul>
+  </div>
+  <div class="bottom-nav"><a href="#" onclick="showPage('conclusion')">← Выводы</a><a href="#" onclick="showPage('literature')" class="active">Литература</a><a href="#" onclick="showPage('home')">↑ На главную</a></div>
+</div>
+<script>
+  // Видео загрузка
+  function setupVideoUpload(inputId, videoId) {
+    const input = document.getElementById(inputId);
+    const video = document.getElementById(videoId);
+    if (input && video) {
+      input.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('video/')) {
+          video.src = URL.createObjectURL(file);
+          video.load();
+        }
+      });
+    }
+  }
+  setupVideoUpload('homeVideoUpload', 'homeVideo');
+  setupVideoUpload('evolutionVideoUpload', 'evolutionVideo');
+  setupVideoUpload('architectureVideoUpload', 'architectureVideo');
+  setupVideoUpload('typologyVideoUpload', 'typologyVideo');
+  setupVideoUpload('softwareVideoUpload', 'softwareVideo');
+
+  function toggleMenu() { document.getElementById('main-nav').classList.toggle('open'); }
+  
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    document.querySelectorAll('nav a[data-page]').forEach(a => a.classList.toggle('active', a.dataset.page === id));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('main-nav').classList.remove('open');
+    return false;
+  }
+  
+  window.addEventListener('scroll', () => document.getElementById('site-header').classList.toggle('scrolled', window.scrollY > 10));
+
+  function showSource(num, title, desc, url) {
+    document.getElementById('modal-title').innerHTML = `${num}. ${title}`;
+    document.getElementById('modal-desc').innerHTML = desc;
+    document.getElementById('modal-url').href = url;
+    document.getElementById('modal').style.display = 'flex';
+  }
+  
+  function closeModal() { document.getElementById('modal').style.display = 'none'; }
+  window.onclick = function(e) { if (e.target == document.getElementById('modal')) closeModal(); }
+
+  // ========== ИНТЕРАКТИВ ДЛЯ ЭВОЛЮЦИИ (без скачивания) ==========
+  const evolutionModal = document.getElementById('evolutionModal');
+  const modalImg = document.getElementById('modalEvolutionImg');
+  const modalTitle = document.getElementById('modalEvolutionTitle');
+  const modalDesc = document.getElementById('modalEvolutionDesc');
+  const modalClose = document.querySelector('.evolution-modal-close');
+
+  function initEvolutionInteractive() {
+    const evolutionItems = document.querySelectorAll('.tl-item.interactive-evolution');
+    
+    evolutionItems.forEach(item => {
+      item.addEventListener('click', function(e) {
+        const year = this.getAttribute('data-year');
+        const title = this.getAttribute('data-title');
+        const imgSrc = this.getAttribute('data-img');
+        const description = this.getAttribute('data-description');
+        
+        if (imgSrc) {
+          modalTitle.textContent = `${year} — ${title}`;
+          modalImg.src = imgSrc;
+          modalDesc.textContent = description;
+          evolutionModal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    });
+  }
+
+  function closeEvolutionModal() {
+    evolutionModal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  if (modalClose) modalClose.addEventListener('click', closeEvolutionModal);
+  evolutionModal.addEventListener('click', function(e) { if (e.target === evolutionModal) closeEvolutionModal(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && evolutionModal.style.display === 'flex') closeEvolutionModal(); });
+
+  // Курсор
+  const cursorDot = document.querySelector('.cursor-dot');
+  const cursorRing = document.querySelector('.cursor-ring');
+  if (cursorDot && cursorRing) {
+    document.addEventListener('mousemove', function(e) {
+      cursorDot.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+      cursorRing.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+    });
+    const interactiveElements = document.querySelectorAll('a, button, .btn, .card, .toc-item, .arch-card, .video-container, .refs-list li, .conclusion-card, .nav a, .bottom-nav a, .logo, .timeline .tl-item, .info-box, .side-image');
+    interactiveElements.forEach(el => {
+      el.addEventListener('mouseenter', () => { cursorRing.classList.add('hover'); cursorDot.classList.add('hover'); });
+      el.addEventListener('mouseleave', () => { cursorRing.classList.remove('hover'); cursorDot.classList.remove('hover'); });
+    });
+  }
+
+  initEvolutionInteractive();
+</script>
+</body>
+</html>
